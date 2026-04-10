@@ -39,3 +39,4 @@ compile_commands.json
 *.dwo
 /engine/extern/slangc/slang-glsl-module.bin
 !/engine/extern/D3D12/**
+/engine/inc/shader_data.hpp
