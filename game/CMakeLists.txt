@@ -1,0 +1,7 @@
+file(GLOB_RECURSE GAME_SOURCES CONFIGURE_DEPENDS src/*.cpp)
+add_executable(Racing ${GAME_SOURCES})
+target_include_directories(Racing PUBLIC inc)
+target_link_libraries(Racing PUBLIC Engine)
+copy_dirs(Racing ${CMAKE_SOURCE_DIR}/assets)
+copy_dirs(Racing ${CMAKE_SOURCE_DIR}/shaders)
+copy_dirs(Racing ${CMAKE_SOURCE_DIR}/engine/extern/D3D12)
