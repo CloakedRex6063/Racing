@@ -1,9 +1,6 @@
 #include "common.slang"
 #include "lighting.slang"
 
-#define VARIANT_TRANSPARENT
-#define VARIANT_OPAQUE
-
 struct PushConstant
 {
     uint meshlet_offset;
@@ -225,10 +222,5 @@ float4 pixel_main(VertexOut input) : SV_Target
     color = ACESFilm(color);
     color = pow(color, 1.0 / 2.2);
 
-#ifdef VARIANT_OPAQUE
-    return float4(color, 1.0);
-#endif
-#ifdef VARIANT_TRANSPARENT
     return float4(color, albedo.a);
-#endif
 }
