@@ -86,7 +86,7 @@ float3 GetIBLRadianceLambertian(float3 n, float3 v, float roughness, float3 diff
 float3 GetIBLRadianceGGX(float3 n, float3 v, float roughness, float3 F0, SamplerCube specular_texture, Sampler2D lut_texture)
 {
     float NoV = saturate(dot(n, v));
-    float lod = roughness * float(6);
+    float lod = roughness * float(8);
     float3 reflection = normalize(reflect(-v, n));
 
     float2 brdfSamplePoint = clamp(float2(NoV, roughness), float2(0.0, 0.0), float2(1.0, 1.0));

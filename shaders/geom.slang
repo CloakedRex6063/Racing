@@ -146,6 +146,13 @@ float4 pixel_main(VertexOut input) : SV_Target
     F0 = lerp(F0, albedo.rgb, metallic);
 
     float2 cc = UnpackHalf2(material.clear_coat);
+    float3 dndx = ddx(N);
+    float3 dndy = ddy(N);
+    float variance = dot(dndx, dndx) + dot(dndy, dndy);
+    float kernelRoughness = min(2.0 * variance, 0.25);
+
+    roughness = sqrt(saturate(roughness * roughness + kernelRoughness));
+    cc.y = sqrt(saturate(cc.y * cc.y + kernelRoughness));
 
     var diffuse_ibl_texture =
         DescriptorHandle<SamplerCube>(uint2(GlobalConstants.diffuse_ibl_index, GlobalConstants.bilinear_sampler_index));
@@ -214,7 +221,7 @@ float4 pixel_main(VertexOut input) : SV_Target
         }
     }
 
-    float3 color = ibl * ao * 0.1 + lo + emissive;
+    float3 color = ibl * ao * 0.5 + lo + emissive;
     color = ACESFilm(color);
     color = pow(color, 1.0 / 2.2);
 
