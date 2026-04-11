@@ -68,8 +68,8 @@ namespace Apex::Component
         DirectionalLight(glm::vec3 direction, float intensity, glm::vec3 color,
                          bool cast_shadows);
         glm::vec3 direction = glm::vec3(-0.3f, 1.0f, -0.2f);
-        float intensity = 10.0f;
-        glm::vec3 color = glm::vec3(1.0f);
+        float intensity = 15.0f;
+        glm::vec3 color = glm::vec3(1.0f, 0.7f, 0.4f);
         bool cast_shadows = false;
         int dir_light_index;
 

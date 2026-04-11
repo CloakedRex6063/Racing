@@ -181,22 +181,43 @@ std::expected<Apex::Texture, Apex::ResourceManager::LoadError> Apex::ResourceMan
 {
     std::ifstream stream;
     stream.open(path, std::ios::binary);
-    std::vector<char> header_data;
-    header_data.resize(sizeof(dds::Header));
-    stream.read(header_data.data(), sizeof(dds::Header));
-    const auto header = dds::read_header(header_data.data(), sizeof(dds::Header));
-    stream.seekg(header.data_offset(), std::ios::beg);
-    std::vector<u8> data;
-    data.resize(header.data_size());
-    stream.read(reinterpret_cast<char*>(data.data()), header.data_size());
+    if (path.extension() == ".dds")
+    {
+        std::vector<char> header_data;
+        header_data.resize(sizeof(dds::Header));
+        stream.read(header_data.data(), sizeof(dds::Header));
+        const auto header = dds::read_header(header_data.data(), sizeof(dds::Header));
+        stream.seekg(header.data_offset(), std::ios::beg);
+        std::vector<u8> data;
+        data.resize(header.data_size());
+        stream.read(reinterpret_cast<char*>(data.data()), header.data_size());
+        return Texture(path.stem().string(), TextureCreateInfo{
+                           .pixels = data,
+                           .width = header.width(),
+                           .height = header.height(),
+                           .array_count = header.array_size(),
+                           .mip_count = header.mip_levels(),
+                           .format = FromDXGIFormat(header.format()),
+                       });
+    }
+
+    int width = 0, height = 0, channels = 0;
+    stbi_uc* data = stbi_load(
+        path.string().c_str(),
+        &width, &height, &channels, STBI_rgb_alpha);
+
+    assert(data && "stb_image failed to decode embedded texture");
+
     return Texture(path.stem().string(), TextureCreateInfo{
-                       .pixels = data,
-                       .width = header.width(),
-                       .height = header.height(),
-                       .array_count = header.array_size(),
-                       .mip_count = header.mip_levels(),
-                       .format = FromDXGIFormat(header.format()),
+                       .pixels = {data, data + width * height * 4},
+                       .width = static_cast<u32>(width),
+                       .height = static_cast<u32>(height),
+                       .array_count = 1,
+                       .mip_count = 1,
+                       .format = Swift::Format::eRGBA8_UNORM,
                    });
+
+    stbi_image_free(data);
 }
 
 void Apex::ResourceManager::LoadNode(const Ref<Model>& model, const Node& node, const Entity parent_entity)

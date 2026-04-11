@@ -2,6 +2,7 @@
 #include "core/device.hpp"
 #include "core/engine.hpp"
 #include "managers/camera_manager.hpp"
+#include "render/depth_prepass.hpp"
 #include "render/gen_draws.hpp"
 #include "render/geom_pass.hpp"
 #include "render/shadow_pass.hpp"
@@ -26,6 +27,7 @@ void Apex::Renderer::Init()
     BuildSamplers();
     BuildBuffers();
     AddRenderPass<GenDrawsPass>();
+    AddRenderPass<DepthPrepass>();
     AddRenderPass<ShadowPass>();
     AddRenderPass<GeomPass>();
     AddRenderPass<SkyboxPass>();

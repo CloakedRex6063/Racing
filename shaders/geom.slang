@@ -187,6 +187,7 @@ float4 pixel_main(VertexOut input) : SV_Target
     var specular_ibl_texture =
         DescriptorHandle<SamplerCube>(uint2(GlobalConstants.specular_ibl_index, GlobalConstants.bilinear_sampler_index));
     var lut_texture = DescriptorHandle<Sampler2D>(uint2(GlobalConstants.lut_ibl_index, GlobalConstants.bilinear_sampler_index));
+    var point_light_buffer = DescriptorHandle<StructuredBuffer<PointLight>>(GlobalConstants.point_buffer_index);
     var dir_light_buffer = DescriptorHandle<StructuredBuffer<DirectionalLight>>(GlobalConstants.dir_buffer_index);
     float3 lo = 0.0;
     float3 ibl = 0.0;
@@ -196,28 +197,29 @@ float4 pixel_main(VertexOut input) : SV_Target
         {
             var dir_light = dir_light_buffer[i];
             float3 radiance = dir_light.color * dir_light.intensity;
-            lo += ApplyLight(normalize(-dir_light.direction),
-                             radiance,
-                             F0,
-                             N,
-                             V,
-                             clearcoatN,
-                             roughness * roughness,
-                             metallic,
-                             albedo.rgb,
-                             cc.x,
-                             cc.y);
-            ibl = CalculateIBL(N,
-                               V,
-                               albedo.rgb * (1.0 - metallic),
-                               roughness,
-                               F0,
-                               cc.x,
-                               cc.y,
-                               diffuse_ibl_texture,
-                               specular_ibl_texture,
-                               lut_texture);
+            float3 L = normalize(-dir_light.direction);
+            lo += ApplyLight(L, radiance, F0, N, V, clearcoatN, roughness * roughness, metallic, albedo.rgb, cc.x, cc.y);
         }
+        for (int i = 0; i < GlobalConstants.point_light_count; i++)
+        {
+            var point_light = point_light_buffer[i];
+            float3 light_vec = point_light.position - input.world_pos;
+            float distance = length(light_vec);
+            float3 L = light_vec / distance;
+            float attenuation = 1.0 / (distance * distance);
+            float3 radiance = point_light.color * point_light.intensity * attenuation;
+            lo += ApplyLight(L, radiance, F0, N, V, clearcoatN, roughness * roughness, metallic, albedo.rgb, cc.x, cc.y);
+        }
+        ibl = CalculateIBL(N,
+                           V,
+                           albedo.rgb * (1.0 - metallic),
+                           roughness,
+                           F0,
+                           cc.x,
+                           cc.y,
+                           diffuse_ibl_texture,
+                           specular_ibl_texture,
+                           lut_texture);
     }
     else
     {
@@ -225,28 +227,30 @@ float4 pixel_main(VertexOut input) : SV_Target
         {
             var dir_light = dir_light_buffer[i];
             float3 radiance = dir_light.color * dir_light.intensity;
-            lo += ApplyLight(normalize(dir_light.direction),
-                             radiance,
-                             F0,
-                             N,
-                             V,
-                             roughness * roughness,
-                             metallic,
-                             albedo.rgb,
-                             cc.x,
-                             cc.y);
-            ibl = CalculateIBL(N,
-                               V,
-                               albedo.rgb * (1.0 - metallic),
-                               roughness,
-                               F0,
-                               cc.x,
-                               cc.y,
-                               clearcoatN,
-                               diffuse_ibl_texture,
-                               specular_ibl_texture,
-                               lut_texture);
+            float3 L = normalize(-dir_light.direction);
+            lo += ApplyLight(L, radiance, F0, N, V, roughness * roughness, metallic, albedo.rgb, cc.x, cc.y);
         }
+        for (int i = 0; i < GlobalConstants.point_light_count; i++)
+        {
+            var point_light = point_light_buffer[i];
+            float3 light_vec = point_light.position - input.world_pos;
+            float distance = length(light_vec);
+            float3 L = light_vec / distance;
+            float attenuation = 1.0 / (distance * distance);
+            float3 radiance = point_light.color * point_light.intensity * attenuation;
+            lo += ApplyLight(L, radiance, F0, N, V, clearcoatN, roughness * roughness, metallic, albedo.rgb, cc.x, cc.y);
+        }
+        ibl = CalculateIBL(N,
+                           V,
+                           albedo.rgb * (1.0 - metallic),
+                           roughness,
+                           F0,
+                           cc.x,
+                           cc.y,
+                           clearcoatN,
+                           diffuse_ibl_texture,
+                           specular_ibl_texture,
+                           lut_texture);
     }
 
     float3 color = ibl * ao * 0.5 + lo + emissive;
