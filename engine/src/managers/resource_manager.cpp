@@ -186,7 +186,7 @@ std::expected<Apex::Texture, Apex::ResourceManager::LoadError> Apex::ResourceMan
     stream.read(header_data.data(), sizeof(dds::Header));
     const auto header = dds::read_header(header_data.data(), sizeof(dds::Header));
     stream.seekg(header.data_offset(), std::ios::beg);
-    std::vector<uint8_t> data;
+    std::vector<u8> data;
     data.resize(header.data_size());
     stream.read(reinterpret_cast<char*>(data.data()), header.data_size());
     return Texture(path.stem().string(), TextureCreateInfo{
@@ -214,8 +214,9 @@ void Apex::ResourceManager::LoadNode(const Ref<Model>& model, const Node& node, 
 
     if (node.m_mesh_index >= 0)
     {
+        const auto& mesh = model->m_meshes[node.m_mesh_index];
         ECS::AddComponent<Component::Renderable>(entity, model, node.m_mesh_index);
-        if (model->m_materials[model->m_meshes[node.m_mesh_index].material_index].alpha_mode == AlphaMode::eBlend)
+        if (model->m_materials[mesh.material_index].alpha_mode == AlphaMode::eBlend)
         {
             ECS::AddComponent<Component::Translucent>(entity);
         }
@@ -266,7 +267,8 @@ Apex::Mesh Apex::ResourceManager::LoadMesh(const aiMesh* mesh)
 
     meshopt_optimizeVertexCache(indices.data(), indices.data(), indices.size(), positions.size());
 
-    auto max_meshlets = meshopt_buildMeshletsBound(indices.size(), k_max_vertices, k_max_triangles);
+    auto max_meshlets = meshopt_buildMeshletsBound(indices.size(), Renderer::k_max_meshlet_vertices,
+                                                   Renderer::k_max_meshlet_triangles);
 
     std::vector<meshopt_Meshlet> meshlets(max_meshlets);
     std::vector<u32> meshlet_vertices(indices.size());
@@ -274,17 +276,35 @@ Apex::Mesh Apex::ResourceManager::LoadMesh(const aiMesh* mesh)
     auto meshlet_count = meshopt_buildMeshlets(meshlets.data(), meshlet_vertices.data(), meshlet_triangles.data(),
                                                indices.data(), indices.size(),
                                                reinterpret_cast<float*>(positions.data()), positions.size(),
-                                               sizeof(glm::vec3), k_max_vertices, k_max_triangles, k_cone_weight);
+                                               sizeof(glm::vec3), Renderer::k_max_meshlet_vertices,
+                                               Renderer::k_max_meshlet_triangles, Renderer::k_cone_weight);
     const meshopt_Meshlet& last = meshlets[meshlet_count - 1];
 
     meshlet_vertices.resize(last.vertex_offset + last.vertex_count);
     meshlet_triangles.resize(last.triangle_offset + last.triangle_count * 3);
     meshlets.resize(meshlet_count);
 
+    std::vector<CullData> cull_datas;
+    cull_datas.reserve(meshlet_count);
     for (const auto& meshlet : meshlets)
     {
         meshopt_optimizeMeshlet(&meshlet_vertices[meshlet.vertex_offset], &meshlet_triangles[meshlet.triangle_offset],
                                 meshlet.triangle_count, meshlet.vertex_count);
+        const meshopt_Bounds bounds = meshopt_computeMeshletBounds(&meshlet_vertices[meshlet.vertex_offset],
+                                                                   &meshlet_triangles[meshlet.triangle_offset],
+                                                                   meshlet.triangle_count,
+                                                                   reinterpret_cast<const float*>(positions.data()),
+                                                                   positions.size(),
+                                                                   sizeof(glm::vec3));
+
+        cull_datas.push_back(CullData{
+            .center = glm::vec3(bounds.center[0], bounds.center[1], bounds.center[2]),
+            .radius = bounds.radius,
+            .cone_apex = glm::vec3(bounds.cone_apex[0], bounds.cone_apex[1], bounds.cone_apex[2]),
+            .cone_packed = (u32(u8(bounds.cone_axis_s8[0])) << 0) | (u32(u8(bounds.cone_axis_s8[1]))
+                << 8) |
+            (u32(u8(bounds.cone_axis_s8[2])) << 16) | (u32(u8(bounds.cone_cutoff_s8)) << 24),
+        });
     }
 
     std::vector<u32> packed_triangles;
@@ -349,6 +369,8 @@ Apex::Mesh Apex::ResourceManager::LoadMesh(const aiMesh* mesh)
                                          packed_triangles.size() * sizeof(u32));
     renderer->GetMeshletBuffer()->Write(meshlets.data(), m_meshlet_count * sizeof(Meshlet),
                                         meshlets.size() * sizeof(Meshlet));
+    renderer->GetCullDataBuffer()->Write(cull_datas.data(), m_meshlet_count * sizeof(CullData),
+                                         cull_datas.size() * sizeof(CullData));
 
     m_vertex_count += new_mesh.vertex_count;
     m_triangle_count += new_mesh.triangle_count;
@@ -490,7 +512,7 @@ Apex::Texture Apex::ResourceManager::LoadTexture(const aiTexture* texture)
 
     if (texture->mHeight == 0)
     {
-        int width, height, channels;
+        int width = 0, height = 0, channels = 0;
         stbi_uc* data = stbi_load_from_memory(
             reinterpret_cast<const stbi_uc*>(texture->pcData),
             static_cast<int>(texture->mWidth),

@@ -3,13 +3,17 @@ struct GlobalConstant
     float4x4 view;
     float4x4 proj;
     float4x4 view_proj;
+    float4 frustum[6];
     float3 cam_pos;
+    float cam_near;
+    float cam_far;
     uint position_buffer_index;
     uint vertex_buffer_index;
     uint triangle_buffer_index;
     uint meshlet_buffer_index;
     uint transform_buffer_index;
     uint material_buffer_index;
+    uint cull_data_buffer_index;
     uint shadow_buffer_index;
     uint point_buffer_index;
     uint point_light_count;
@@ -63,6 +67,7 @@ struct Material
 
 struct IndirectCommand
 {
+    uint meshlet_count;
     uint meshlet_offset;
     uint transform_index;
     uint material_index;
@@ -98,4 +103,6 @@ bool HasFlag(uint flags, uint flag)
 {
     return (flags & flag) != 0;
 }
+
+static const uint AS_GROUP_SIZE = 32;
 

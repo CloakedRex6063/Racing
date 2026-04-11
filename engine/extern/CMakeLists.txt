@@ -20,7 +20,7 @@ CPMAddPackage(
 CPMAddPackage(
         NAME SWIFT
         GITHUB_REPOSITORY CloakedRex6063/SwiftRender
-        GIT_TAG 875cf8b2
+        GIT_TAG b42af46
 )
 CPMAddPackage(
         NAME assimp

@@ -32,10 +32,13 @@ namespace Apex
     class Renderer : public System
     {
     public:
+        static constexpr u32 k_max_meshlet_vertices = 64;
+        static constexpr u32 k_max_meshlet_triangles = 126;
+        static constexpr float k_cone_weight = 0.5f;
         static constexpr u32 k_max_draw_count = 100'000;
-        static constexpr u32 k_max_vertex_count = 100'000'000;
-        static constexpr u32 k_max_triangle_count = 100'000'000;
-        static constexpr u32 k_max_meshlet_count = 10'000'000;
+        static constexpr u32 k_max_meshlet_count = 1'000'000;
+        static constexpr u32 k_max_vertex_count = k_max_meshlet_count * k_max_meshlet_vertices;
+        static constexpr u32 k_max_triangle_count = k_max_meshlet_count * k_max_meshlet_triangles;
         static constexpr u32 k_max_material_count = 10'000;
         static constexpr u32 k_max_point_light_count = 1'000;
         static constexpr u32 k_max_dir_light_count = 10;
@@ -57,6 +60,7 @@ namespace Apex
         [[nodiscard]] Swift::IBuffer* GetVertexBuffer() const { return m_vertex_buffer; }
         [[nodiscard]] Swift::IBuffer* GetTriangleBuffer() const { return m_triangle_buffer; }
         [[nodiscard]] Swift::IBuffer* GetMeshletBuffer() const { return m_meshlet_buffer; }
+        [[nodiscard]] Swift::IBuffer* GetCullDataBuffer() const { return m_cull_data_buffer; }
         [[nodiscard]] Swift::IBuffer* GetTransformBuffer() const { return m_transform_buffer; }
         [[nodiscard]] Swift::IBuffer* GetMaterialBuffer() const { return m_material_buffer; }
         [[nodiscard]] Swift::IBuffer* GetDrawDataBuffer() const { return m_draw_buffer; }
@@ -70,6 +74,7 @@ namespace Apex
         [[nodiscard]] Swift::IBufferView* GetTransformBufferView() const { return m_transform_buffer_view; }
         [[nodiscard]] Swift::IBufferView* GetMaterialBufferView() const { return m_material_buffer_view; }
         [[nodiscard]] Swift::IBufferView* GetDrawDataBufferView() const { return m_draw_buffer_view; }
+        [[nodiscard]] Swift::IBufferView* GetCullDataBufferView() const { return m_cull_data_buffer_view; }
         [[nodiscard]] Swift::RG::RenderGraph& GetRenderGraph() { return m_render_graph; }
         [[nodiscard]] Swift::ITextureView* GetDepthTargetView() const { return m_depth_target_view; }
 
@@ -121,15 +126,21 @@ namespace Apex
             glm::mat4 proj;
             glm::mat4 view_proj;
 
-            glm::vec3 cam_pos;
-            u32 position_buffer_index;
+            glm::vec4 frustum[6];
 
+            glm::vec3 cam_pos;
+            float cam_near;
+
+            float cam_far;
+            u32 position_buffer_index;
             u32 vertex_buffer_index;
             u32 triangle_buffer_index;
+
             u32 meshlet_buffer_index;
             u32 transform_buffer_index;
-
             u32 material_buffer_index;
+            u32 cull_buffer_index;
+
             u32 shadow_buffer_index;
             u32 point_buffer_index;
             u32 point_light_count;
@@ -161,6 +172,8 @@ namespace Apex
         Swift::IBufferView* m_triangle_buffer_view = nullptr;
         Swift::IBuffer* m_meshlet_buffer = nullptr;
         Swift::IBufferView* m_meshlet_buffer_view = nullptr;
+        Swift::IBuffer* m_cull_data_buffer = nullptr;
+        Swift::IBufferView* m_cull_data_buffer_view = nullptr;
 
         Swift::IBuffer* m_transform_buffer = nullptr;
         Swift::IBufferView* m_transform_buffer_view = nullptr;

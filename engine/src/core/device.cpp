@@ -34,9 +34,18 @@ void Device::Init()
     {
         Log::Critical("GLFW window could not be created");
         glfwTerminate();
-        assert(false);
         exit(EXIT_FAILURE);
     }
+
+    glfwSetWindowSizeCallback(m_window,
+                  [](GLFWwindow*, int w, int h)
+                  {
+                      const auto& device = g_engine.GetSystem<Device>();
+                      for (auto& callback : device->m_resize_callbacks)
+                      {
+                          callback({w, h});
+                      }
+                  });
 }
 
 void Device::Update(float) { glfwPollEvents(); }

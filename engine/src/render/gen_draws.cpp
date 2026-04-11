@@ -12,13 +12,13 @@ Apex::GenDrawsPass::GenDrawsPass()
 
     std::vector<Swift::IndirectArgument> indirect_arguments(2);
     indirect_arguments[0].type = Swift::IndirectArgumentType::ePushConstant;
-    indirect_arguments[0].size = sizeof(uint32_t) * 3;
+    indirect_arguments[0].size = sizeof(u32) * 4;
 
     indirect_arguments[1].type = Swift::IndirectArgumentType::eMeshDispatch;
 
     m_mesh_command_signature = context->CreateCommandSignature(indirect_arguments);
 
-    m_indirect_buffer = Swift::BufferBuilder(context, sizeof(IndirectCommand) * Renderer::k_max_draw_count).
+    m_indirect_buffer = Swift::BufferBuilder(context, sizeof(IndirectMeshCommand) * Renderer::k_max_draw_count).
                         SetBufferFlags(Swift::BufferFlags::eUnorderedAccess).
                         SetName(
                             "Indirect Command Buffer").Build();
@@ -81,8 +81,6 @@ void Apex::GenDrawsPass::Execute()
                             u32 total_draw_count;
                             u32 base_draw_offset;
                             u32 draw_buffer_index;
-                            u32 transform_buffer_index;
-                            u32 meshlet_buffer_index;
                             u32 indirect_command_buffer_index;
                             u32 count_buffer_index;
                         } pc
@@ -90,13 +88,11 @@ void Apex::GenDrawsPass::Execute()
                             .total_draw_count = mesh_count,
                             .base_draw_offset = base_offset,
                             .draw_buffer_index = renderer->GetDrawDataBufferView()->GetDescriptorIndex(),
-                            .transform_buffer_index = renderer->GetTransformBufferView()->GetDescriptorIndex(),
-                            .meshlet_buffer_index = renderer->GetMeshletBufferView()->GetDescriptorIndex(),
                             .indirect_command_buffer_index = indirect_cmd_view->GetDescriptorIndex(),
                             .count_buffer_index = count_view->GetDescriptorIndex(),
                         };
                         command->PushConstants(&pc, sizeof(PushConstants));
-                        command->DispatchCompute((mesh_count + 31) / 32, 1, 1);
+                        command->DispatchCompute((mesh_count + 63) / 64, 1, 1);
                     });
     };
 

@@ -10,7 +10,7 @@
 
 void Apex::Renderer::Init()
 {
-    const auto device = g_engine.GetSystem<Device>();
+    const auto& device = g_engine.GetSystem<Device>();
     const glm::uvec2 window_size = device->GetWindowSize();
     m_context = Swift::CreateContext({
         .width = window_size.x, .height = window_size.y, .native_window_handle = device->GetNativeWindow(),
@@ -29,6 +29,24 @@ void Apex::Renderer::Init()
     AddRenderPass<ShadowPass>();
     AddRenderPass<GeomPass>();
     AddRenderPass<SkyboxPass>();
+
+    device->AddResizeCallback([&](const glm::uvec2& size)
+    {
+        m_context->GetGraphicsQueue()->WaitIdle();
+        m_context->ResizeBuffers(size.x, size.y);
+
+        m_context->DestroyTexture(m_depth_target);
+        m_context->DestroyTextureView(m_depth_target_view);
+
+        m_depth_target = Swift::TextureBuilder(m_context, size.x, size.y)
+                         .SetFormat(Swift::Format::eD32F)
+                         .SetFlags(Swift::TextureFlags::eDepthStencil)
+                         .Build();
+        m_depth_target_view = m_context->CreateTextureView(m_depth_target,
+                                                           {
+                                                               .type = Swift::TextureViewType::eDepthStencil,
+                                                           });
+    });
 }
 
 void Apex::Renderer::Update(float)
@@ -43,7 +61,7 @@ void Apex::Renderer::Update(float)
     auto MakeDrawData = [](std::vector<DrawData>& draw_data, const Component::Renderable& renderable,
                            const Component::Transform& transform)
     {
-        const auto mesh = renderable.m_model->m_meshes[renderable.m_mesh_index];
+        const auto& mesh = renderable.m_model->m_meshes[renderable.m_mesh_index];
         draw_data.emplace_back(DrawData{
             .meshlet_count = mesh.meshlet_count,
             .meshlet_offset = mesh.meshlet_offset,
@@ -56,9 +74,9 @@ void Apex::Renderer::Update(float)
     {
         m_opaque_draws.clear();
         m_translucent_draws.clear();
-        auto opaque_view = ECS::GetRegistry().view<
+        const auto opaque_view = ECS::GetRegistry().view<
             Component::Renderable, Component::Transform>(entt::exclude<Component::Translucent>);
-        auto translucent_view = ECS::GetRegistry().view<
+        const auto translucent_view = ECS::GetRegistry().view<
             Component::Renderable, Component::Transform, Component::Translucent>();
 
 
@@ -292,6 +310,13 @@ void Apex::Renderer::BuildBuffers()
                                                             .num_elements = k_max_meshlet_count,
                                                             .element_size = sizeof(Meshlet),
                                                         });
+    m_cull_data_buffer = Swift::BufferBuilder(m_context, k_max_meshlet_count * sizeof(CullData)).SetName(
+            "Cull Data Buffer").
+        Build();
+    m_cull_data_buffer_view = m_context->CreateBufferView(m_cull_data_buffer, {
+                                                              .num_elements = k_max_meshlet_count,
+                                                              .element_size = sizeof(CullData),
+                                                          });
     m_transform_buffer = Swift::BufferBuilder(m_context, k_max_draw_count * sizeof(GPUTransform)).SetName(
             "Transform Buffer").
         Build();
@@ -349,19 +374,42 @@ void Apex::Renderer::UpdateGlobalConstantBuffer() const
     const auto camera_manager = g_engine.GetSystem<CameraManager>();
     const auto view = camera_manager->GetViewMatrix();
     const auto proj = camera_manager->GetProjectionMatrix();
+
     const auto view_proj = proj * view;
-    const auto position = ECS::GetComponent<Component::Transform>(camera_manager->GetCurrentCamera()).m_position;
+    glm::mat4 vp_t = glm::transpose(view_proj);
+
+    // Gribb-Hartmann plane extraction
+    auto normalize_plane = [](glm::vec4 p)
+    {
+        return p / glm::length(glm::vec3(p));
+    };
+
+    glm::vec4 left   = normalize_plane(vp_t[3] + vp_t[0]);
+    glm::vec4 right  = normalize_plane(vp_t[3] - vp_t[0]);
+    glm::vec4 bottom = normalize_plane(vp_t[3] + vp_t[1]);
+    glm::vec4 top    = normalize_plane(vp_t[3] - vp_t[1]);
+    glm::vec4 near_p = normalize_plane(vp_t[2]);
+    glm::vec4 far_p  = normalize_plane(vp_t[3] - vp_t[2]);
+
+
+    auto current_cam = camera_manager->GetCurrentCamera();
+    const auto position = ECS::GetComponent<Component::Transform>(current_cam).m_position;
+    const auto camera = ECS::GetComponent<Component::Camera>(current_cam);
     const GlobalConstants constants{
         .view = view,
         .proj = proj,
         .view_proj = view_proj,
+        .frustum = {left, right, bottom, top, near_p, far_p},
         .cam_pos = position,
+        .cam_near = camera.mNear,
+        .cam_far = camera.mFar,
         .position_buffer_index = m_position_buffer_view->GetDescriptorIndex(),
         .vertex_buffer_index = m_vertex_buffer_view->GetDescriptorIndex(),
         .triangle_buffer_index = m_triangle_buffer_view->GetDescriptorIndex(),
         .meshlet_buffer_index = m_meshlet_buffer_view->GetDescriptorIndex(),
         .transform_buffer_index = m_transform_buffer_view->GetDescriptorIndex(),
         .material_buffer_index = m_material_buffer_view->GetDescriptorIndex(),
+        .cull_buffer_index = m_cull_data_buffer_view->GetDescriptorIndex(),
         .shadow_buffer_index = m_shadow_buffer_view->GetDescriptorIndex(),
         .point_buffer_index = m_point_light_buffer_view->GetDescriptorIndex(),
         .point_light_count = m_point_light_count,

@@ -58,10 +58,10 @@ namespace Apex
     struct TextureCreateInfo
     {
         std::vector<u8> pixels;
-        uint32_t width = 1;
-        uint32_t height = 1;
-        uint32_t array_count = 1;
-        uint32_t mip_count = 1;
+        u32 width = 1;
+        u32 height = 1;
+        u32 array_count = 1;
+        u32 mip_count = 1;
         Swift::Format format = Swift::Format::eRGBA8_UNORM;
     };
 
@@ -78,21 +78,21 @@ namespace Apex
     struct Mesh
     {
         std::string name;
-        uint32_t vertex_offset;
-        uint32_t vertex_count;
-        uint32_t meshlet_offset;
-        uint32_t meshlet_count;
-        uint32_t triangle_offset;
-        uint32_t triangle_count;
-        uint32_t material_index;
+        u32 vertex_offset;
+        u32 vertex_count;
+        u32 meshlet_offset;
+        u32 meshlet_count;
+        u32 triangle_offset;
+        u32 triangle_count;
+        u32 material_index;
     };
 
     struct Meshlet
     {
-        uint32_t vertex_offset;
-        uint32_t triangle_offset;
-        uint32_t vertex_count;
-        uint32_t triangle_count;
+        u32 vertex_offset;
+        u32 triangle_offset;
+        u32 vertex_count;
+        u32 triangle_count;
     };
 
     struct CullData
@@ -100,7 +100,7 @@ namespace Apex
         glm::vec3 center{};
         float radius{};
         glm::vec3 cone_apex;
-        uint32_t cone_packed;
+        u32 cone_packed;
     };
 
     struct Model
@@ -111,12 +111,7 @@ namespace Apex
         std::vector<Mesh> m_meshes;
         std::vector<Material> m_materials;
         std::vector<Texture> m_textures;
-        std::vector<CullData> m_cull_datas;
     };
-
-    static constexpr u32 k_max_vertices = 64;
-    static constexpr u32 k_max_triangles = 126;
-    static constexpr float k_cone_weight = 0.5f;
 
     class ResourceManager final : public System
     {

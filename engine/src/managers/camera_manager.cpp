@@ -63,14 +63,14 @@ glm::mat4 CameraManager::GetViewMatrix() const
 {
     auto& transform = ECS::GetComponent<Component::Transform>(mCurrentCamera);
     auto& camera = ECS::GetComponent<Component::Camera>(mCurrentCamera);
-    return lookAt(transform.m_position, transform.m_position + camera.mFront, camera.mUp);
+    return lookAtRH(transform.m_position, transform.m_position + camera.mFront, camera.mUp);
 }
 
 glm::mat4 CameraManager::GetProjectionMatrix() const
 {
     auto& camera = ECS::GetComponent<Component::Camera>(mCurrentCamera);
     const auto windowSize = g_engine.GetSystem<Device>()->GetWindowSize();
-    return glm::perspective(glm::radians(camera.mFov), windowSize.x / windowSize.y, camera.mNear, camera.mFar);
+    return glm::perspectiveRH_ZO(glm::radians(camera.mFov), windowSize.x / windowSize.y, camera.mNear, camera.mFar);
 }
 
 glm::vec3 CameraManager::GetPosition() const

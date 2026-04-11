@@ -12,6 +12,7 @@ Apex::GeomPass::GeomPass()
     m_opaque_shader = Swift::GraphicsShaderBuilder(context)
                       .AddRTVFormat(Swift::Format::eRGBA8_UNORM)
                       .SetDSVFormat(Swift::Format::eD32F)
+                      .SetAmplificationShader(geom_ampl_main_code)
                       .SetMeshShader(geom_mesh_main_code)
                       .SetPixelShader(geom_pixel_main_code)
                       .SetDepthTestEnable(true)
@@ -34,6 +35,7 @@ Apex::GeomPass::GeomPass()
                                .logic_op = Swift::LogicOp::eNoOp
                            })
                            .SetDSVFormat(Swift::Format::eD32F)
+                           .SetAmplificationShader(geom_ampl_main_code)
                            .SetMeshShader(geom_mesh_main_code)
                            .SetPixelShader(geom_pixel_main_code)
                            .SetDepthTestEnable(true)
@@ -78,9 +80,9 @@ void Apex::GeomPass::Execute()
             auto mesh_command_sig = gen_draw_pass.GetMeshCommandSignature();
             command->TransitionBuffer(indirect_buffer, Swift::ResourceState::eIndirectArgument);
             command->TransitionBuffer(gen_draw_pass.GetCountBuffer(), Swift::ResourceState::eIndirectArgument);
-            command->DispatchMeshIndirect(mesh_command_sig, max_draws,
-                                          indirect_buffer, indirect_offset,
-                                          gen_draw_pass.GetCountBuffer(), count_offset);
+            command->ExecuteIndirect(mesh_command_sig, max_draws,
+                                     indirect_buffer, indirect_offset,
+                                     gen_draw_pass.GetCountBuffer(), count_offset);
         });
     };
 
@@ -89,6 +91,6 @@ void Apex::GeomPass::Execute()
     u32 translucent_count = renderer->GetTranslucentDraws().size();
     AddGeometryPass("Geometry Pass", m_opaque_shader, 0, frame_index * sizeof(u32), opaque_count, true);
     AddGeometryPass("Translucent Pass", m_translucent_shader,
-                    opaque_count * sizeof(IndirectCommand), 3 * sizeof(u32) + frame_index * sizeof(u32),
+                    opaque_count * sizeof(IndirectMeshCommand), 3 * sizeof(u32) + frame_index * sizeof(u32),
                     translucent_count, false);
 }

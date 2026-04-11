@@ -3,8 +3,9 @@
 
 namespace Apex
 {
-    struct IndirectCommand
+    struct IndirectMeshCommand
     {
+        u32 meshlet_count;
         u32 meshlet_offset;
         u32 transform_index;
         u32 material_index;
